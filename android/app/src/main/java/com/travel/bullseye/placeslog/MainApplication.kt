@@ -1,4 +1,4 @@
-package com.travelbullseyeplaceslog
+package com.travel.bullseye.placeslog
 
 import android.app.Application
 import com.facebook.react.PackageList

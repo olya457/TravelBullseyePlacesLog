@@ -1,4 +1,4 @@
-package com.travelbullseyeplaceslog
+package com.travel.bullseye.placeslog
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
