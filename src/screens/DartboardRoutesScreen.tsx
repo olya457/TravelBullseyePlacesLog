@@ -13,12 +13,11 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableWithoutFeedback,
   useWindowDimensions,
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE, Region, MapPressEvent } from 'react-native-maps';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -305,6 +304,7 @@ export default function DartboardRoutesScreen() {
   const currentRegionRef = useRef<Region>(INITIAL_REGION);
   const titleInputRef = useRef<TextInput | null>(null);
   const noteInputRef = useRef<TextInput | null>(null);
+  const androidModalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const screenFade = useRef(new Animated.Value(0)).current;
   const screenRise = useRef(new Animated.Value(24)).current;
@@ -327,6 +327,7 @@ export default function DartboardRoutesScreen() {
 
   const [showCompactKeyboard, setShowCompactKeyboard] = useState(true);
   const [activeKeyboardField, setActiveKeyboardField] = useState<KeyboardField>('title');
+  const [pendingModalOpen, setPendingModalOpen] = useState(0);
 
   const bottomNavigationSpace = useMemo(() => {
     if (isVerySmall) return insets.bottom + 88;
@@ -367,6 +368,14 @@ export default function DartboardRoutesScreen() {
   }, [screenFade, screenRise]);
 
   useEffect(() => {
+    return () => {
+      if (androidModalTimerRef.current) {
+        clearTimeout(androidModalTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!selectedAppSpot) return;
 
     spotCardOpacity.setValue(0);
@@ -387,6 +396,31 @@ export default function DartboardRoutesScreen() {
       }),
     ]).start();
   }, [selectedAppSpot, spotCardOpacity, spotCardScale]);
+
+  useEffect(() => {
+    if (!pendingModalOpen || !draftCoordinate || !placingMode) return;
+
+    if (androidModalTimerRef.current) {
+      clearTimeout(androidModalTimerRef.current);
+      androidModalTimerRef.current = null;
+    }
+
+    if (Platform.OS === 'android') {
+      androidModalTimerRef.current = setTimeout(() => {
+        setShowSaveModal(true);
+        androidModalTimerRef.current = null;
+      }, 80);
+
+      return () => {
+        if (androidModalTimerRef.current) {
+          clearTimeout(androidModalTimerRef.current);
+          androidModalTimerRef.current = null;
+        }
+      };
+    }
+
+    setShowSaveModal(true);
+  }, [pendingModalOpen, draftCoordinate, placingMode]);
 
   useEffect(() => {
     if (!showSaveModal) return;
@@ -497,19 +531,30 @@ export default function DartboardRoutesScreen() {
   };
 
   const closeSaveModal = () => {
+    if (androidModalTimerRef.current) {
+      clearTimeout(androidModalTimerRef.current);
+      androidModalTimerRef.current = null;
+    }
     setShowCompactKeyboard(false);
     setShowSaveModal(false);
+    setPendingModalOpen(0);
     resetDraft();
   };
 
   const enterPlacementMode = (tone: Exclude<MarkerTone, 'wish'>) => {
     setSelectedAppSpot(null);
     setPlacingMode(tone);
+    setPendingModalOpen(0);
     resetDraft();
     setActiveTab('map');
   };
 
   const cancelPlacementMode = () => {
+    if (androidModalTimerRef.current) {
+      clearTimeout(androidModalTimerRef.current);
+      androidModalTimerRef.current = null;
+    }
+    setPendingModalOpen(0);
     setPlacingMode(null);
     resetDraft();
   };
@@ -517,6 +562,7 @@ export default function DartboardRoutesScreen() {
   const openAppSpotCard = (spot: AppSpot) => {
     setSelectedAppSpot(spot);
     setPlacingMode(null);
+    setPendingModalOpen(0);
     resetDraft();
 
     animateToRegion({
@@ -527,19 +573,22 @@ export default function DartboardRoutesScreen() {
     });
   };
 
-  const handleMapPress = (event: any) => {
-    if (!placingMode) return;
+  const handleMapPress = useCallback(
+    (event: MapPressEvent) => {
+      if (!placingMode) return;
 
-    const { latitude, longitude } = event.nativeEvent.coordinate;
+      const { latitude, longitude } = event.nativeEvent.coordinate;
 
-    setSelectedAppSpot(null);
-    setDraftCoordinate({ latitude, longitude });
-    setDraftTitle('');
-    setDraftNote('');
-    setActiveKeyboardField('title');
-    setShowCompactKeyboard(true);
-    setShowSaveModal(true);
-  };
+      setSelectedAppSpot(null);
+      setDraftCoordinate({ latitude, longitude });
+      setDraftTitle('');
+      setDraftNote('');
+      setActiveKeyboardField('title');
+      setShowCompactKeyboard(true);
+      setPendingModalOpen(Date.now());
+    },
+    [placingMode],
+  );
 
   const savePin = async () => {
     if (!placingMode || !draftCoordinate || !draftTitle.trim()) return;
@@ -559,6 +608,7 @@ export default function DartboardRoutesScreen() {
       await persistSavedPins(nextPins);
       setShowSaveModal(false);
       setShowCompactKeyboard(false);
+      setPendingModalOpen(0);
       setPlacingMode(null);
       resetDraft();
       setActiveTab('log');
@@ -689,6 +739,7 @@ export default function DartboardRoutesScreen() {
               pitchEnabled={false}
               toolbarEnabled={false}
               showsScale={false}
+              moveOnMarkerPress={false}
             >
               {APP_SPOTS.map(spot => (
                 <Marker
@@ -698,6 +749,7 @@ export default function DartboardRoutesScreen() {
                     longitude: spot.longitude,
                   }}
                   anchor={{ x: 0.5, y: 0.5 }}
+                  tracksViewChanges={false}
                   onPress={() => openAppSpotCard(spot)}
                 >
                   <MarkerPin tone="wish" isMapMarker />
@@ -712,13 +764,14 @@ export default function DartboardRoutesScreen() {
                     longitude: pin.longitude,
                   }}
                   anchor={{ x: 0.5, y: 0.5 }}
+                  tracksViewChanges={false}
                 >
                   <MarkerPin tone={pin.tone} isMapMarker />
                 </Marker>
               ))}
 
               {draftCoordinate && placingMode ? (
-                <Marker coordinate={draftCoordinate} anchor={{ x: 0.5, y: 0.5 }}>
+                <Marker coordinate={draftCoordinate} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
                   <MarkerPin tone={placingMode} isMapMarker />
                 </Marker>
               ) : null}
@@ -853,131 +906,129 @@ export default function DartboardRoutesScreen() {
         onRequestClose={closeSaveModal}
       >
         <ModalContainer style={styles.modalRoot} {...modalContainerProps}>
-          <TouchableWithoutFeedback>
-            <View style={styles.modalOverlay}>
-              <Animated.View
-                style={[
-                  styles.modalCard,
-                  isVerySmall && styles.modalCardVerySmall,
-                  isSmall && !isVerySmall && styles.modalCardSmall,
-                  {
-                    opacity: modalOpacity,
-                    transform: [{ scale: modalScale }],
-                  },
-                ]}
-              >
-                <View style={styles.modalTopRow}>
-                  <View
-                    style={[
-                      styles.modalToneBadge,
-                      placingMode === 'want' ? styles.wantChip : styles.seenChip,
-                    ]}
-                  >
-                    <MarkerPin tone={placingMode ?? 'want'} />
-                    <Text style={styles.modalToneText}>
-                      {placingMode === 'want' ? 'Want to Go' : 'Seen It'}
-                    </Text>
-                  </View>
-
-                  <Pressable style={styles.modalClose} onPress={closeSaveModal}>
-                    <Text style={styles.modalCloseText}>×</Text>
-                  </Pressable>
-                </View>
-
-                <TextInput
-                  ref={titleInputRef}
-                  value={draftTitle}
-                  onChangeText={setDraftTitle}
-                  placeholder="City, Location"
-                  placeholderTextColor="rgba(255,255,255,0.60)"
-                  style={[styles.modalTitleInput, isVerySmall && styles.modalTitleInputVerySmall]}
-                  showSoftInputOnFocus={false}
-                  onFocus={() => {
-                    setActiveKeyboardField('title');
-                    setShowCompactKeyboard(true);
-                  }}
-                />
-
-                <TextInput
-                  ref={noteInputRef}
-                  value={draftNote}
-                  onChangeText={setDraftNote}
-                  placeholder="Write a memory, a plan, or something special about this place"
-                  placeholderTextColor="rgba(255,255,255,0.48)"
-                  multiline
-                  textAlignVertical="top"
-                  style={[styles.modalNoteInput, isVerySmall && styles.modalNoteInputVerySmall]}
-                  showSoftInputOnFocus={false}
-                  onFocus={() => {
-                    setActiveKeyboardField('note');
-                    setShowCompactKeyboard(true);
-                  }}
-                />
-
+          <View style={styles.modalOverlay}>
+            <Animated.View
+              style={[
+                styles.modalCard,
+                isVerySmall && styles.modalCardVerySmall,
+                isSmall && !isVerySmall && styles.modalCardSmall,
+                {
+                  opacity: modalOpacity,
+                  transform: [{ scale: modalScale }],
+                },
+              ]}
+            >
+              <View style={styles.modalTopRow}>
                 <View
                   style={[
-                    styles.modalKeyboardHelper,
-                    isVerySmall && styles.modalKeyboardHelperVerySmall,
+                    styles.modalToneBadge,
+                    placingMode === 'want' ? styles.wantChip : styles.seenChip,
                   ]}
                 >
-                  <Text style={styles.modalKeyboardHelperText}>
-                    Your note will be saved with this marker
+                  <MarkerPin tone={placingMode ?? 'want'} />
+                  <Text style={styles.modalToneText}>
+                    {placingMode === 'want' ? 'Want to Go' : 'Seen It'}
                   </Text>
                 </View>
 
-                <Pressable
-                  style={[
-                    styles.modalSaveButton,
-                    isVerySmall && styles.modalSaveButtonVerySmall,
-                    !draftTitle.trim() && styles.modalSaveButtonDisabled,
-                  ]}
-                  onPress={savePin}
-                  disabled={!draftTitle.trim()}
-                >
-                  <Text style={styles.modalSaveButtonText}>Save</Text>
+                <Pressable style={styles.modalClose} onPress={closeSaveModal}>
+                  <Text style={styles.modalCloseText}>×</Text>
                 </Pressable>
+              </View>
 
-                <CompactKeyboard
-                  visible={showCompactKeyboard}
-                  activeField={activeKeyboardField}
-                  isVerySmall={isVerySmall}
-                  onFieldChange={field => {
-                    setActiveKeyboardField(field);
+              <TextInput
+                ref={titleInputRef}
+                value={draftTitle}
+                onChangeText={setDraftTitle}
+                placeholder="City, Location"
+                placeholderTextColor="rgba(255,255,255,0.60)"
+                style={[styles.modalTitleInput, isVerySmall && styles.modalTitleInputVerySmall]}
+                showSoftInputOnFocus={false}
+                onFocus={() => {
+                  setActiveKeyboardField('title');
+                  setShowCompactKeyboard(true);
+                }}
+              />
 
-                    if (field === 'title') {
-                      titleInputRef.current?.focus();
-                    } else {
-                      noteInputRef.current?.focus();
-                    }
-                  }}
-                  onInsert={value => {
-                    if (activeKeyboardField === 'title') {
-                      setDraftTitle(prev => prev + value);
-                    } else {
-                      setDraftNote(prev => prev + value);
-                    }
-                  }}
-                  onBackspace={() => {
-                    if (activeKeyboardField === 'title') {
-                      setDraftTitle(prev => prev.slice(0, -1));
-                    } else {
-                      setDraftNote(prev => prev.slice(0, -1));
-                    }
-                  }}
-                  onSpace={() => {
-                    if (activeKeyboardField === 'title') {
-                      setDraftTitle(prev => prev + ' ');
-                    } else {
-                      setDraftNote(prev => prev + ' ');
-                    }
-                  }}
-                  onDone={() => {
-                    setShowCompactKeyboard(false);
-                  }}
-                />
-              </Animated.View>
-            </View>
-          </TouchableWithoutFeedback>
+              <TextInput
+                ref={noteInputRef}
+                value={draftNote}
+                onChangeText={setDraftNote}
+                placeholder="Write a memory, a plan, or something special about this place"
+                placeholderTextColor="rgba(255,255,255,0.48)"
+                multiline
+                textAlignVertical="top"
+                style={[styles.modalNoteInput, isVerySmall && styles.modalNoteInputVerySmall]}
+                showSoftInputOnFocus={false}
+                onFocus={() => {
+                  setActiveKeyboardField('note');
+                  setShowCompactKeyboard(true);
+                }}
+              />
+
+              <View
+                style={[
+                  styles.modalKeyboardHelper,
+                  isVerySmall && styles.modalKeyboardHelperVerySmall,
+                ]}
+              >
+                <Text style={styles.modalKeyboardHelperText}>
+                  Your note will be saved with this marker
+                </Text>
+              </View>
+
+              <Pressable
+                style={[
+                  styles.modalSaveButton,
+                  isVerySmall && styles.modalSaveButtonVerySmall,
+                  !draftTitle.trim() && styles.modalSaveButtonDisabled,
+                ]}
+                onPress={savePin}
+                disabled={!draftTitle.trim()}
+              >
+                <Text style={styles.modalSaveButtonText}>Save</Text>
+              </Pressable>
+
+              <CompactKeyboard
+                visible={showCompactKeyboard}
+                activeField={activeKeyboardField}
+                isVerySmall={isVerySmall}
+                onFieldChange={field => {
+                  setActiveKeyboardField(field);
+
+                  if (field === 'title') {
+                    titleInputRef.current?.focus();
+                  } else {
+                    noteInputRef.current?.focus();
+                  }
+                }}
+                onInsert={value => {
+                  if (activeKeyboardField === 'title') {
+                    setDraftTitle(prev => prev + value);
+                  } else {
+                    setDraftNote(prev => prev + value);
+                  }
+                }}
+                onBackspace={() => {
+                  if (activeKeyboardField === 'title') {
+                    setDraftTitle(prev => prev.slice(0, -1));
+                  } else {
+                    setDraftNote(prev => prev.slice(0, -1));
+                  }
+                }}
+                onSpace={() => {
+                  if (activeKeyboardField === 'title') {
+                    setDraftTitle(prev => prev + ' ');
+                  } else {
+                    setDraftNote(prev => prev + ' ');
+                  }
+                }}
+                onDone={() => {
+                  setShowCompactKeyboard(false);
+                }}
+              />
+            </Animated.View>
+          </View>
         </ModalContainer>
       </Modal>
     </SafeAreaView>
@@ -1625,5 +1676,4 @@ const styles = StyleSheet.create({
     height: 32,
     marginRight: 12,
   },
-}); 
-
+});
