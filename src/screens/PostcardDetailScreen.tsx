@@ -2,7 +2,6 @@ import React, { useCallback, useMemo } from 'react';
 import {
   Alert,
   ImageBackground,
-  Pressable,
   ScrollView,
   Share,
   StyleSheet,
@@ -76,23 +75,15 @@ export default function PostcardDetailScreen({ route, navigation }: Props) {
         bounces
       >
         <View style={styles.topBar}>
-          <Pressable
-            style={styles.backCircle}
-            onPress={() => navigation.goBack()}
-            hitSlop={10}
-          >
-            <Text style={styles.backIcon}>←</Text>
-          </Pressable>
+          <Text style={styles.backCircle} onPress={() => navigation.goBack()}>
+            ←
+          </Text>
 
           <Text style={styles.headerTitle}>Details</Text>
 
-          <Pressable
-            style={styles.shareCircle}
-            onPress={handleShare}
-            hitSlop={10}
-          >
-            <Text style={styles.shareIcon}>↗</Text>
-          </Pressable>
+          <Text style={styles.shareCircle} onPress={handleShare}>
+            ↗
+          </Text>
         </View>
 
         <ImageBackground
@@ -113,20 +104,6 @@ export default function PostcardDetailScreen({ route, navigation }: Props) {
             </View>
           </View>
         </ImageBackground>
-
-        <View style={styles.actionRow}>
-          <Pressable style={[styles.smallActionButton, styles.wantToGoButton]}>
-            <Text style={styles.smallActionText}>Want to Go</Text>
-          </Pressable>
-
-          <Pressable style={[styles.smallActionButton, styles.seenItButton]}>
-            <Text style={styles.smallActionText}>Seen It</Text>
-          </Pressable>
-        </View>
-
-        <Pressable style={styles.locationButton}>
-          <Text style={styles.locationButtonText}>• Show location</Text>
-        </Pressable>
 
         <View style={[styles.infoCard, styles.blueCard]}>
           <Text style={styles.infoTitle}>★ Why people love it</Text>
@@ -188,13 +165,13 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     backgroundColor: '#001F7A',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backIcon: {
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '800',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    lineHeight: 42,
+    overflow: 'hidden',
   },
   headerTitle: {
     color: '#FFFFFF',
@@ -206,13 +183,13 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     backgroundColor: '#FFD400',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  shareIcon: {
     color: '#111111',
     fontSize: 18,
     fontWeight: '800',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    lineHeight: 42,
+    overflow: 'hidden',
   },
   heroCard: {
     height: 300,
@@ -251,42 +228,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '600',
-  },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 12,
-  },
-  smallActionButton: {
-    flex: 1,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  wantToGoButton: {
-    backgroundColor: '#149D37',
-  },
-  seenItButton: {
-    backgroundColor: '#D82470',
-  },
-  smallActionText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  locationButton: {
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFD400',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  locationButtonText: {
-    color: '#111111',
-    fontSize: 15,
-    fontWeight: '800',
   },
   infoCard: {
     borderRadius: 14,

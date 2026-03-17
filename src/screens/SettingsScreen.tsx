@@ -19,6 +19,7 @@ const SETTINGS_BG = require('../assets/images/atlas_bluefield.png');
 const SKETCH_STORAGE_KEY = 'sketch_along_saved_gallery_v3';
 const SKETCH_TUTORIAL_KEY = 'sketch_along_tutorial_seen_v1';
 const SETTINGS_NOTIFICATIONS_KEY = 'settings_notifications_enabled_v1';
+const DARTBOARD_PINS_STORAGE_KEY = 'travel_bullseye_saved_pins_v2';
 
 export default function SettingsScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -69,6 +70,7 @@ export default function SettingsScreen() {
     const loadSettings = async () => {
       try {
         const savedValue = await AsyncStorage.getItem(SETTINGS_NOTIFICATIONS_KEY);
+
         if (savedValue === '0') {
           setNotificationsEnabled(false);
         } else {
@@ -130,6 +132,7 @@ export default function SettingsScreen() {
       await AsyncStorage.multiRemove([
         SKETCH_STORAGE_KEY,
         SKETCH_TUTORIAL_KEY,
+        DARTBOARD_PINS_STORAGE_KEY,
       ]);
     } catch {}
 
@@ -212,7 +215,7 @@ export default function SettingsScreen() {
               <Text style={styles.modalTitle}>Clear Everything?</Text>
 
               <Text style={styles.modalText}>
-                This will remove your saved sketches. Once removed, they cannot be restored.
+                This will remove your saved sketches and your added map markers. Once removed, they cannot be restored.
               </Text>
 
               <View style={styles.modalButtonsRow}>

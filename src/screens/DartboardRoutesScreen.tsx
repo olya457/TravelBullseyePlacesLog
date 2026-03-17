@@ -20,7 +20,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { postcardPicks } from '../data/PostcardLocation';
@@ -454,6 +454,12 @@ export default function DartboardRoutesScreen() {
   useEffect(() => {
     loadSavedPins();
   }, [loadSavedPins]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadSavedPins();
+    }, [loadSavedPins]),
+  );
 
   const persistSavedPins = useCallback(async (nextPins: SavedPin[]) => {
     setSavedPins(nextPins);
@@ -1619,4 +1625,5 @@ const styles = StyleSheet.create({
     height: 32,
     marginRight: 12,
   },
-});
+}); 
+
