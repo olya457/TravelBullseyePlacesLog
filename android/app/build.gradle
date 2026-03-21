@@ -77,9 +77,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.travel.bullseye.placeslog"
+    namespace "com.travelwithbullseye"
     defaultConfig {
-        applicationId "com.travel.bullseye.placeslog"
+        applicationId "com.travelwithbullseye"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
